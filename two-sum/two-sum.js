@@ -23,7 +23,6 @@ Output: [0,1]
  
 */
 
-
 /*
 FIRST SOLUTION
 make a copy of the Array
@@ -52,52 +51,48 @@ if i + j == target ? [i, j] : return "there is no match"
 */
 
 const solution1 = (nums, target) => {
-    let arr1 = [...nums];
-    arr1.sort();
+	let arr1 = [...nums];
+	arr1.sort();
 
-    for (let j = arr1.length -1; j > 0; j--) {
-        for (let i = 0; i < arr1.length; i++) {
-            if (arr1[j] + arr1[i] == target) {
-                if (arr1[j] == arr1[i]) {
-                    let firstInd = nums.indexOf(arr1[i]);
-                    for (let k = firstInd + 1; k < nums.length; k++) {
-                        if (nums[k] == arr1[j]) {
-                            return [firstInd, k];
-                        }
-                    }
-                }
-                return[nums.indexOf(arr1[i]), nums.indexOf(arr1[j])];
-            }
-        }
-    }
-}
+	for (let j = arr1.length - 1; j > 0; j--) {
+		for (let i = 0; i < arr1.length; i++) {
+			if (arr1[j] + arr1[i] == target) {
+				if (arr1[j] == arr1[i]) {
+					let firstInd = nums.indexOf(arr1[i]);
+					for (let k = firstInd + 1; k < nums.length; k++) {
+						if (nums[k] == arr1[j]) {
+							return [firstInd, k];
+						}
+					}
+				}
+				return [nums.indexOf(arr1[i]), nums.indexOf(arr1[j])];
+			}
+		}
+	}
+};
 
 const solution2 = (nums, target) => {
-    let dict = {};
+	let dict = {};
 
-    for (let i = 0; i < nums.length; i++) {
-        if (!(nums[i] in dict)) {
-            dict[nums[i]] = [];
-        }
-        dict[nums[i]].push(i);     
-    }
+	for (let i = 0; i < nums.length; i++) {
+		if (!(nums[i] in dict)) {
+			dict[nums[i]] = [];
+		}
+		dict[nums[i]].push(i);
+	}
 
-    for (let i = 0; i < nums.length; i++) {
-        if (nums[i] > target) {
-            continue;
-        }
-        let difference = target - nums[i];
+	for (let i = 0; i < nums.length; i++) {
+		let difference = target - nums[i];
+		if (difference in dict) {
+			if (difference == nums[i] && dict[difference].length > 1) {
+				return dict[difference];
+			} else if (dict[difference][0] == i) {
+				continue;
+			} else {
+				return [dict[difference][0], i];
+			}
+		}
+	}
+};
 
-        if (difference == nums[i] && dict[difference].length > 1) {
-            return dict[difference];
-        }
-        else if {
-
-        } else {
-                return [dict[difference][0], i];
-         }
-        }
-    }
-
-
-}
+function solution3(nums, target) {}
