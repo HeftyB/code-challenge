@@ -51,16 +51,16 @@ int main (void)
 
     newArray[998000] = 999000;
 
-    containsDuplicate(newArray, 1000);   
+    containsDuplicate(newArray, 1000000);   
     return 0; 
 }
 
 bool containsDuplicate(int nums[], int numsSize){
 
     // int length = sizeof(nums) / sizeof(nums[0]);
-    // printf("%i", length);
     for (int i = 0; i < numsSize; i++) {
         for (int j = i + 1; j < numsSize; j++){
+            // printf(" i is %i , j is  %i\n", i, j);
             if (nums[i] == nums[j]) {
                 printf("True");
                 return true;
