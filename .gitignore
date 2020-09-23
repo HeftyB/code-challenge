@@ -1,11 +1,34 @@
-# Default ignored files
-/shelf/
-/workspace.xml
-# Datasource local storage ignored files
-/dataSources/
-/dataSources.local.xml
-# Editor-based HTTP Client requests
-/httpRequests/
+# Jetbrains IntelliJ Idea
+.idea
+*.iml
 
-**.DS_Store
-**.class
+# Linux
+# backup files
+*~
+
+# Windows
+# thumbnails
+Thumbs.db
+
+# Mac OS X
+# metadata
+.DS_Store
+# thumbnails
+._*
+
+# GIT
+.git/
+
+# Java
+*.class
+
+# packages 
+*.jar
+*.war
+*.ear
+
+# Logging
+*.log
+
+# jME (binaries)
+*.so

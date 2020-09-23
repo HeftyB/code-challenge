@@ -1,4 +1,5 @@
 # include <stdio.h>
+# include <stdbool.h>
 // # include <cs50.h>
 
 
@@ -38,17 +39,34 @@ Output: true
 // # LOOP THROUGH EACH ITEM IN THE ARRAY
 // # FOR EACH ITERATION OF LOOP LOOP THROUGH THE WHOLE ARRAY AGAIN(EXCLUDING CURRENT ITEM) AND RETURN TRUE IF A MATCH IS FOUND
 
+bool containsDuplicate(int[], int);
 
 int main (void)
 {
-    for (int i = 0; i < 10; i++)
-    {
-        printf("Hello World!\n");
-    }
-    return 0;
+    int newArray[1000000];
 
-    bool solution1 (int l1 []) 
-    {
-        
+    for (int i = 0; i < 1000000; i++) {
+        newArray[i] = i;
     }
+
+    newArray[998000] = 999000;
+
+    containsDuplicate(newArray, 1000);   
+    return 0; 
+}
+
+bool containsDuplicate(int nums[], int numsSize){
+
+    // int length = sizeof(nums) / sizeof(nums[0]);
+    // printf("%i", length);
+    for (int i = 0; i < numsSize; i++) {
+        for (int j = i + 1; j < numsSize; j++){
+            if (nums[i] == nums[j]) {
+                printf("True");
+                return true;
+            }
+        }
+    }
+    printf("False");
+    return false; 
 }
