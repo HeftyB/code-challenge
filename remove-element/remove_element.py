@@ -50,6 +50,5 @@ class Solution:
         
         for i in nums:
                 nums.remove(val)
-                # add square 4 today
                 
         return len(nums)
