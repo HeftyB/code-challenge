@@ -1,18 +1,24 @@
 import sys
+import os
 import json
 import xml.etree.ElementTree as et
 from datetime import datetime
 
+
+"""
+returns dictionary of needed data sorted by flight #
+"""  
 def parseXML(path):
 
     if not path.lower().endswith(".xml"):
+        errors.append(f"the file {path} is not a compatible .xml file")
         return {}
 
     tree = et.parse(path)
     root = tree.getroot()
 
     """
-    check if root tag matches tag used in known .xml files
+    check if root tag matches tags used in known .xml files
     """
     if root.tag == "{http://www.iata.org/IATA/EDIST/2017.2}SeatAvailabilityRS":
         if root.attrib["Version"] != "17.2":
@@ -35,6 +41,14 @@ saves python object to .json file
 returns created filename
 """
 def saveFileJSON(dicts, name):
+
+    if not os.path.exists("./json_output/"):
+        try:
+            os.mkdir("./json_output")
+        except OSError as error:
+            print(f"Error creating/accessing output directory '/json_output': {error}")
+            sys.exit(1)        
+
     with open(f"./json_output/{name}.json" , "w") as file:
         json.dump(dicts, file)
 
@@ -63,6 +77,9 @@ def filename(path):
 used for seatmap1.xml
 """
 def ota_air_seatmap_rsV1(tree):
+
+    default_type = "Seat"
+    default_currency = "USD"
     dicts = {}
 
     for e in tree.iter("{http://www.opentravel.org/OTA/2003/05/common/}SeatMapResponse"):
@@ -75,6 +92,7 @@ def ota_air_seatmap_rsV1(tree):
 
         cabins = {}
         counter = 1
+        sort = []
 
         """
         iterate through cabins
@@ -98,8 +116,18 @@ def ota_air_seatmap_rsV1(tree):
                 for s in r.iter("{http://www.opentravel.org/OTA/2003/05/common/}SeatInfo"):
                     seat_info = []
                     items = s.items()
+                    seat_type = default_type
                     column_num = None
+                    service = None
+                    service_code = None
+                    fee = None
+                    taxes = None
+                    price = {}
+                    bulk = False
                     exit_row = False
+                    wing = False
+                    aisle = False
+                    window = False
                     
                     """
                     iterate through seat attributes
@@ -111,6 +139,9 @@ def ota_air_seatmap_rsV1(tree):
                             if item[0] == "ExitRowInd":
                                 exit_row = True
                             seat_info.append(item[0].replace("Ind", ""))
+
+                        if item[0] == "BulkheadInd":
+                            bulk = True
 
 
                     summary = s.find("{http://www.opentravel.org/OTA/2003/05/common/}Summary")
@@ -124,44 +155,78 @@ def ota_air_seatmap_rsV1(tree):
                     for f in s.iter("{http://www.opentravel.org/OTA/2003/05/common/}Features"):
                         if f.text != "Other_":
                             features.append(f.text)
+                            if f.text == "Aisle":
+                                aisle = True
+                            elif f.text == "Overwing":
+                                wing = True
+                            elif f.text == "Window":
+                                window = True
+                            elif f.text == "BlockedSeat_Permanent" and bulk:
+                                seat_type = "Bulkhead"
                         else:
                             features.append(f.attrib["extension"])
-
-                    service = None
-                    service_code = None
-                    fee = None
-                    taxes = None
-                    currency = None
-                    price = None
+                            if f.attrib["extension"] == "Lavatory":
+                                seat_type = "Lavatory"
+                                                
 
                     if available:
                         service = s.find("{http://www.opentravel.org/OTA/2003/05/common/}Service")
                         service_code = service.attrib["CodeContext"]
-                        fee = service.find("{http://www.opentravel.org/OTA/2003/05/common/}Fee")
-                        taxes = fee.find("{http://www.opentravel.org/OTA/2003/05/common/}Taxes")
-                        currency = fee.attrib["CurrencyCode"]
-                        price = float(fee.attrib["Amount"]) + float(taxes.attrib["Amount"])
+
+                        """
+                        incase multiple prices / currency
+                        """
+                        for fee in service.iter("{http://www.opentravel.org/OTA/2003/05/common/}Fee"):
+                            taxes = fee.find("{http://www.opentravel.org/OTA/2003/05/common/}Taxes")
+                            currency = fee.attrib["CurrencyCode"]
+                            price[currency] = float(fee.attrib["Amount"]) + float(taxes.attrib["Amount"])
 
                     seat = {}
-                    seat["seatnum"] = seat_num
-                    seat["type"] = cabin_type
-                    seat["isAvailable"] = available
-                    seat["isExit"] = exit_row
-                    seat["addInfo"] = seat_info
+                    seat["seatId"] = seat_num
+                    seat["type"] = seat_type
+                    seat["class"] = cabin_type
                     seat["features"] = features
-                    seat["price"] = price
-                    seat["currency"] = currency
-                    seat["serviceCode"] = service_code
+                    seat["addInfo"] = seat_info
+                    seat["price"] = price[default_currency] if available else None
+                    seat["currency"] = default_currency if available else None
+                    seat["available"] = available
+                    seat["exit"] = exit_row
+                    seat["wing"] = wing
+                    seat["aisle"] = aisle
+                    seat["window"] = window
 
                     seats[layout[column_num - 1]] = seat
 
-                rows[row_num] = {
+
+
+                rows[f"row {row_num}"] = {
                     "cabinType": cabin_type,
                     "seats": seats
                 }
 
-            cabins[f"cabin {counter}"] = rows
-            counter += 1
+
+
+            if cabin_format:
+                cabins[f"cabin {counter}"] = rows
+                counter += 1
+            else:
+                for key, value in rows.items():
+                    sort.append({
+                        key: value
+                    })
+        
+        
+        """
+        sort
+        """
+        if cabin_format:
+            for key, value in cabins.items():
+                sort.append({
+                    key:value
+                })
+
+        sort.sort(key=sort_by_rownum)
+
 
         dicts[flight_num] = {
             "flightNum": flight_num,
@@ -169,8 +234,8 @@ def ota_air_seatmap_rsV1(tree):
             "time": str(datetime.time(date_time_obj)),
             "depAirport": dep_airport,
             "arrAirport": arr_airport,
-            "vehicleModel": model,
-            "cabins": cabins
+            "model": model,
+            "cabins" if cabin_format else "rows": sort
         }
 
     return dicts
@@ -248,6 +313,7 @@ def seat_availability_rsV17(tree):
         }
     """
 
+
     """
     iterate through seat definitions for later reference
     """
@@ -278,7 +344,7 @@ def seat_availability_rsV17(tree):
 
     """
     iterate through flight segments for reference later
-        - incase multiple flights
+    incase multiple flights
     """
     for f_seg in tree.iter("{http://www.iata.org/IATA/EDIST/2017.2}FlightSegment"):
         departure = f_seg.find("{http://www.iata.org/IATA/EDIST/2017.2}Departure")
@@ -304,8 +370,7 @@ def seat_availability_rsV17(tree):
 
     
     """
-    seatmap dict + counters
-        iterate through seatmaps and store by row / cabin depending usage
+    iterate through seatmaps and store by row / cabin per cabin_format
     """
     ma = {}
     counters = 1
@@ -322,6 +387,7 @@ def seat_availability_rsV17(tree):
         for cabin in m.iter("{http://www.iata.org/IATA/EDIST/2017.2}Cabin"):
 
             rows = {}
+
             """
             iterate through each row in cabin
             """
@@ -329,6 +395,7 @@ def seat_availability_rsV17(tree):
                 row_num = row.find("{http://www.iata.org/IATA/EDIST/2017.2}Number").text
 
                 seats = {}
+
                 """
                 iterate through each seat in row
                 """
@@ -402,7 +469,7 @@ def seat_availability_rsV17(tree):
             rows_sorted.sort(key=s_to_int)
 
             if cabin_format:
-                rows_sorted_dicts = {f"row {k}":rows[k] for k in rows_sorted}
+                rows_sorted_dicts = {k:rows[k] for k in rows_sorted}
                 cabins[f"cabin {counter}"] = rows_sorted_dicts
                 counter += 1
             else:
@@ -429,13 +496,24 @@ def seat_availability_rsV17(tree):
 
 
     """
-    make sure its sorted
+    sort and add
     """
+    for keyy, value in cab.items():
+        items = []
 
-    for key, value in cab.items():
-        value.sort(key=sort_by_rownum)
+        if cabin_format:
+            value.sort(key=sort_by_rownum)
+        else:
+            for item in value:
+                for keey, value in item.items():
+                    items.append({
+                        keey: value
+                    })
 
-        segstr = flight_ref[key]
+            items.sort(key=sort_by_rownum)
+
+
+        segstr = flight_ref[keyy]
 
         seg = flight_segments[segstr]
 
@@ -446,28 +524,26 @@ def seat_availability_rsV17(tree):
         "depAirport": seg["dep_airport"],
         "arrAirport": seg["arr_airport"],
         "model": seg["model"],
-        "cabins" if cabin_format else "rows": value
+        "cabins" if cabin_format else "rows": value if cabin_format else items
     }
 
-    # TODO make error handling more dynamic? maybe global error[]
     return dicts
 
 
 """
 helper fuction to covert strings to ints
-    ie: "row 5" -> 5, "10" -> 10 
+    ex: "row 5" -> 5, "10" -> 10 
 """
 def s_to_int(v):
     if not v.isnumeric():
         v = last_digit_st(v)
-
     return int(v)
 
 """
-helper function to sort dictionaries by key
+helper function to sort dictionaries by key 
+    ex: [{"row 11": seats}, {"row 10": seats}] -> [{"row 10": seats}, {"row 11": seats}]
 """
 def sort_by_rownum(v):
-    
     for key, value in v.items():
         st = key
         if not st.isnumeric():
@@ -476,6 +552,7 @@ def sort_by_rownum(v):
 
 """
 returns the last numerical chars of a string or -1 if st[-1] not numerical
+    ex: "row 10" -> "10" / "row 10R" -> -1
 """
 def last_digit_st(st):
     if not st[-1].isnumeric():
@@ -503,13 +580,12 @@ def get_description(iter):
 
 def main(args):
     """
-    # check args for minimum of 1
+    check args for minimum of 1
     """
     if len(args) < 1:
         sys.exit("file name is required \nusage: python3 seatmap_parser.py file1.xml")
 
     files = []
-    errors= []
 
     """
     for multiple files
@@ -526,23 +602,26 @@ def main(args):
         name = filename(path) 
 
         if not dicts:
-            errors.append(f"the file {path} is not a compatible .xml file")
             continue
 
         files.append(saveFileJSON(dicts, name))
 
-    # TODO make erros more synamic
     for e in errors:
-        print(f"parsing error: {e}")
+        print(f"Parsing error: {e}")
 
     for f in files:
-        print(f"created: {f}")
+        print(f"Created: {f}")
 
+    if not files:
+        sys.exit("Error!")
+        
     sys.exit(0)
+
 
 if __name__ == "__main__":
     args = None
     cabin_format = False
+    errors= []
 
     if sys.argv[1] == "-C":    
         cabin_format = True
