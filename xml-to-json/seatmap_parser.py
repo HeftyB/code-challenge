@@ -621,7 +621,7 @@ def main(args):
 if __name__ == "__main__":
     args = None
     cabin_format = False
-    errors= []
+    errors = []
 
     if sys.argv[1] == "-C":    
         cabin_format = True
